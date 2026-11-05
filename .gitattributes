@@ -1,0 +1,9 @@
+* text=auto
+*.sh text eol=lf
+*.java text eol=lf
+*.js text eol=lf
+*.md text eol=lf
+*.docx binary
+*.jar binary
+*.png binary
+*.apk binary

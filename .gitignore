@@ -1,0 +1,13 @@
+build/
+output/
+.workbuddy/
+*.apk
+releases/*.apk
+
+# 签名密钥绝不入库（含口令，泄露等于别人可以冒名发版）
+*.jks
+*.keystore
+*.p12
+
+# WorkBuddy 会话产物，不入库
+*.genie

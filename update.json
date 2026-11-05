@@ -1,0 +1,8 @@
+{
+  "versionCode": 8,
+  "versionName": "1.7",
+  "apk": "https://github.com/yuguod/pankscan/releases/download/v1.7/pankscan_v1.7.apk",
+  "size": "730 KB",
+  "sha256": "1a0c8f8e8e19e9d0559ac73eb904c4954bfe22b3d8a9301585ac6fafe4a0a085",
+  "notes": "新增「按栈板管理」：明细页改为按栈板分组，点 SN 可改料号/名称/状态，删除后 5 秒内可撤销，每板可改名、单独导出、整板删除。\n新增本机识别画像：每台手机各自记住哪种扫法最灵，攒够样本后自动调整解码顺序与阈值档位，越用越顺；设置页可查看与重置。\n新增自动更新：设置页「检查更新」读取 GitHub 上的版本清单，确认后直接下载并调起安装。\n扫码链路微调：取景框缩到 68%，读不出时提示走近或点 2×。\n"
+}

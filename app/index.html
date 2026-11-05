@@ -1,0 +1,146 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover, maximum-scale=1, user-scalable=no">
+<meta name="theme-color" content="#185FA5">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="default">
+<title>盘库助手</title>
+<link rel="manifest" href="./manifest.webmanifest">
+<link rel="apple-touch-icon" href="./icons/icon-192.png">
+<link rel="icon" href="./icons/icon-192.png">
+<link rel="stylesheet" href="./styles.css">
+</head>
+<body>
+<div class="app">
+  <header class="topbar">
+    <div class="brand"><span class="dot"></span>盘库助手</div>
+    <div class="topact">
+      <div class="count">已记录 <b id="topCount">0</b> 条</div>
+      <button class="iconbtn" id="btnHelp" aria-label="操作说明" title="操作说明">?</button>
+    </div>
+  </header>
+
+  <main class="content">
+    <section class="view active" id="view-scan">
+      <div class="setup">
+        <button class="field" id="btnPallet">
+          <span class="lbl">栈板编码</span>
+          <span class="val empty" id="valPallet">点击设置</span>
+        </button>
+        <button class="field" id="btnPart">
+          <span class="lbl">料号 / 名称</span>
+          <span class="val empty" id="valPart">点击选择</span>
+        </button>
+      </div>
+
+      <div class="chips" id="statusChips"></div>
+
+      <div class="scanner" id="scanner">
+        <video id="video" playsinline muted autoplay></video>
+        <div class="frame"><i></i></div>
+        <div class="scan-state" id="scanState">
+          <p>摄像头未开启</p>
+          <button class="btn primary big" id="btnStart">开启摄像头</button>
+        </div>
+      </div>
+
+      <div class="actions">
+        <button class="btn" id="btnManual">手动输入</button>
+        <button class="btn" id="btnTorch" disabled>手电筒</button>
+        <button class="btn" id="btnPause" disabled>暂停</button>
+      </div>
+
+      <div class="listbar">
+        <span><b id="cntPallet">0</b> 条已扫</span>
+        <span id="palletLabel">未设置栈板</span>
+      </div>
+      <ul class="rec-list" id="scanList"></ul>
+    </section>
+
+    <section class="view" id="view-list">
+      <div class="filterbar">
+        <input type="search" id="searchBox" placeholder="搜索 SN / 料号 / 名称">
+        <select id="filterPallet"><option value="__all">全部栈板</option></select>
+      </div>
+      <div class="stats">
+        <div>总记录<b id="statTotal">0</b></div>
+        <div>栈板数<b id="statPallet">0</b></div>
+        <div>本机存储<b id="statSize">0 KB</b></div>
+      </div>
+      <div class="pcards" id="palletCards"></div>
+    </section>
+
+    <section class="view" id="view-setup">
+      <div class="card">
+        <h3>料号库 <span class="muted" id="partCount">0 项</span></h3>
+        <div class="row">
+          <button class="btn" id="btnAddPart">添加料号</button>
+          <button class="btn" id="btnImportParts">导入表格</button>
+        </div>
+        <ul class="mini-list" id="partList"></ul>
+      </div>
+
+      <div class="card">
+        <h3>状态选项</h3>
+        <div class="chips" id="statusEditor"></div>
+        <button class="btn" id="btnAddStatus">添加状态</button>
+      </div>
+
+      <div class="card">
+        <h3>扫码设置</h3>
+        <label class="switch"><input type="checkbox" id="chkQr"><span>同时识别二维码</span></label>
+        <label class="switch"><input type="checkbox" id="chkDedupe" checked><span>同一栈板重复 SN 提示并跳过</span></label>
+        <label class="switch"><input type="checkbox" id="chkSound" checked><span>扫码成功提示音</span></label>
+        <label class="switch"><input type="checkbox" id="chkVibe" checked><span>扫码成功震动</span></label>
+      </div>
+
+      <div class="card">
+        <h3>导出与备份</h3>
+        <label class="switch"><input type="checkbox" id="chkStrip" checked><span>导出时名称去掉料号前缀（DSK05台式机5代 → 台式机5代）</span></label>
+        <div class="row">
+          <button class="btn primary" id="btnExportXlsx">导出 Excel</button>
+          <button class="btn" id="btnExportCsv">导出 CSV</button>
+        </div>
+        <div class="row">
+          <button class="btn" id="btnImportCsv">导入备份</button>
+          <button class="btn danger ghost" id="btnClearAll">清空记录</button>
+        </div>
+      </div>
+
+      <div class="card">
+        <h3>帮助与关于</h3>
+        <div class="row">
+          <button class="btn" id="btnHelp2">操作说明</button>
+          <button class="btn" id="btnAbout">关于软件</button>
+        </div>
+        <div class="row">
+          <button class="btn" id="btnCheckUpdate">检查更新</button>
+          <button class="btn" id="btnScanProfile">本机识别画像</button>
+        </div>
+        <p class="verline">盘库助手 <b id="verText">V1.4</b> · 作者 雨过</p>
+      </div>
+
+      <p class="foot">数据只保存在本机浏览器，不上传服务器。<br>换手机或清理缓存前，请先导出备份。</p>
+    </section>
+  </main>
+
+  <nav class="tabbar">
+    <button class="tab active" data-view="scan">扫码</button>
+    <button class="tab" data-view="list">明细</button>
+    <button class="tab" data-view="setup">设置</button>
+  </nav>
+</div>
+
+<div class="toast" id="toast"></div>
+<div id="modalRoot"></div>
+<input type="file" id="fileInput" accept=".xlsx,.xls,.csv" hidden>
+
+<script src="./vendor/zxing.min.js"></script>
+<script src="./vendor/xlsx.full.min.js"></script>
+<script src="./data/parts.js"></script>
+<script src="./app.js"></script>
+</body>
+</html>
