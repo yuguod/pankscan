@@ -51,7 +51,7 @@ SHA="$(sha256sum "$DIST/$ASSET" | cut -d' ' -f1)"
 SIZE_KB=$(( ($(stat -c%s "$DIST/$ASSET") + 1023) / 1024 ))
 
 CDN_APK="https://cdn.jsdelivr.net/gh/$OWNER/$REPO@v$VER/dist/$ASSET"
-GH_APK="https://github.com/$OWNER/$REPO/releases/download/v$VER/$ASSET"
+GCORE_APK="https://gcore.jsdelivr.net/gh/$OWNER/$REPO@v$VER/dist/$ASSET"
 CDN_MANIFEST="https://cdn.jsdelivr.net/gh/$OWNER/$REPO@$BRANCH/update.json"
 
 if [ -f "$PROJ/更新说明.txt" ]; then
@@ -60,13 +60,13 @@ else
   NOTES="$(date +%Y-%m-%d) 更新内容写在这里，一行一条"
 fi
 
-# app 端先试 apk（CDN，快），不行再试 apk2（GitHub Release，稳）
+# 两个地址都走 jsDelivr：本地网络下 Release 附件域名解析不了，CDN 反而稳
 cat > "$PROJ/update.json" <<JSON
 {
   "versionCode": $VC,
   "versionName": "$VER",
   "apk": "$CDN_APK",
-  "apk2": "$GH_APK",
+  "apk2": "$GCORE_APK",
   "size": "${SIZE_KB} KB",
   "sha256": "$SHA",
   "notes": "$NOTES"

@@ -272,6 +272,10 @@ class UpdateManager {
         c.setInstanceFollowRedirects(true);
         c.setRequestProperty("Cache-Control", "no-cache");
         c.setRequestProperty("User-Agent", "PanScan/" + currentVersionCode());
+        // contents 接口默认回一段带 base64 的 JSON，指定 raw 才直接给文件原文
+        if (url.indexOf("api.github.com") >= 0) {
+            c.setRequestProperty("Accept", "application/vnd.github.raw");
+        }
         int code = c.getResponseCode();
         if (code != 200) throw new Exception("HTTP " + code);
         return c;

@@ -1,4 +1,4 @@
-var CACHE = 'pankscan-v8';
+var CACHE = 'pankscan-v9';
 var ASSETS = [
   './',
   './index.html',

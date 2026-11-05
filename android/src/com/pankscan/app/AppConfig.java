@@ -26,16 +26,24 @@ final class AppConfig {
 
     /**
      * 版本清单：jsDelivr 的 GitHub 镜像。
-     *
-     * 实测在本地网络下 raw 域名直接解析失败（UnknownHost），jsDelivr 直连 200，
-     * 所以把它排在第一位；raw 留作海外或挂了代理时的兜底。
-     * 代价是 jsDelivr 对分支引用有缓存（最长 12 小时），刚发布的版本可能要多等一会儿才看得到。
+     * 直连能通，但**分支引用的缓存最长 12 小时**，加时间戳参数也绕不过去，
+     * 所以只当兜底，不能当主源。
      */
     static final String MANIFEST_URL_CDN =
             "https://cdn.jsdelivr.net/gh/" + OWNER + "/" + REPO + "@" + BRANCH + "/update.json";
 
+    /**
+     * 版本清单：GitHub 官方 API（contents 接口）。
+     *
+     * 实测本地网络下这个域名直连 200，且**没有 CDN 那层缓存**，发完版立刻读得到新清单，
+     * 所以放第一位。请求时带 Accept: application/vnd.github.raw，直接拿到文件原文；
+     * 未登录限速 60 次/小时/IP，检查更新这个频率远远够用。
+     */
+    static final String MANIFEST_URL_API =
+            "https://api.github.com/repos/" + OWNER + "/" + REPO + "/contents/update.json?ref=" + BRANCH;
+
     /** 按顺序尝试，第一个通的就用 */
-    static final String[] MANIFEST_SOURCES = {MANIFEST_URL_CDN, MANIFEST_URL};
+    static final String[] MANIFEST_SOURCES = {MANIFEST_URL_API, MANIFEST_URL, MANIFEST_URL_CDN};
 
     private AppConfig() {
     }
