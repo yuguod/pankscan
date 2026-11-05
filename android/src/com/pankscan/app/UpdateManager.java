@@ -49,6 +49,8 @@ class UpdateManager {
 
     private volatile boolean busy;
     private String apkUrl = "";
+    /** 备用下载地址（GitHub Release 直连），CDN 拉不动时换它 */
+    private String apkUrl2 = "";
     private String apkSha = "";
 
     UpdateManager(Activity a, JsBridge b) {
@@ -68,11 +70,12 @@ class UpdateManager {
             @Override
             public void run() {
                 try {
-                    String body = httpGet(AppConfig.MANIFEST_URL, 64 * 1024);
+                    String body = fetchManifest();
                     JSONObject o = new JSONObject(body);
                     int remoteCode = o.optInt("versionCode", 0);
                     String remoteName = o.optString("versionName", "");
                     apkUrl = o.optString("apk", "");
+                    apkUrl2 = o.optString("apk2", "");
                     apkSha = o.optString("sha256", "");
                     if (apkUrl.length() > 0 && !apkUrl.startsWith("https://")) {
                         throw new Exception("安装包地址不是 HTTPS");
@@ -119,29 +122,27 @@ class UpdateManager {
                     String name = "pankscan_update.apk";
                     out = new File(dir, name);
 
-                    HttpURLConnection c = open(apkUrl);
-                    int total = c.getContentLength();
-                    InputStream in = c.getInputStream();
-                    FileOutputStream fo = new FileOutputStream(out);
-                    byte[] buf = new byte[32 * 1024];
-                    long got = 0;
-                    int lastPct = -1;
-                    int n;
-                    while ((n = in.read(buf)) > 0) {
-                        fo.write(buf, 0, n);
-                        got += n;
-                        if (total > 0) {
-                            int pct = (int) (got * 100 / total);
-                            if (pct != lastPct && pct % 4 == 0) {
-                                lastPct = pct;
-                                emitProgress(pct);
-                            }
+                    // CDN 与 Release 两条路都试：国内 jsDelivr 快但偶尔抽风，GitHub 慢却稳。
+                    // 谁先下完算谁的，半截文件在换源前先删掉，不能拿去校验。
+                    String[] urls = apkUrl2.length() > 0
+                            ? new String[]{apkUrl, apkUrl2}
+                            : new String[]{apkUrl};
+                    Throwable lastErr = null;
+                    boolean ok = false;
+                    for (String u : urls) {
+                        if (u == null || u.length() == 0) continue;
+                        try {
+                            fetch(u, out);
+                            ok = true;
+                            break;
+                        } catch (Throwable t) {
+                            lastErr = t;
+                            if (out.exists()) out.delete();
                         }
                     }
-                    fo.flush();
-                    fo.close();
-                    in.close();
-                    c.disconnect();
+                    if (!ok) {
+                        throw lastErr != null ? lastErr : new Exception("没有可用的下载地址");
+                    }
 
                     if (apkSha.length() > 0) {
                         String got2 = sha256(out);
@@ -194,6 +195,60 @@ class UpdateManager {
         }
     }
 
+    /**
+     * 依次试每个清单源，谁先回用谁。
+     * 国内 raw 域名经常直接解析失败，所以 CDN 排前面；全挂时把最后一个错误抛出去，提示才有意义。
+     */
+    private String fetchManifest() throws Exception {
+        Throwable last = null;
+        for (String src : AppConfig.MANIFEST_SOURCES) {
+            try {
+                String body = httpGet(src, 64 * 1024);
+                if (body != null && body.trim().length() > 0) return body;
+            } catch (Throwable t) {
+                last = t;
+            }
+        }
+        if (last instanceof Exception) throw (Exception) last;
+        throw new Exception(last == null ? "连不上版本清单" : String.valueOf(last.getMessage()));
+    }
+
+    /** 下载到文件并按总长度报进度；失败时由调用方清掉半截文件 */
+    private void fetch(String url, File out) throws Exception {
+        HttpURLConnection c = open(url);
+        int total = c.getContentLength();
+        InputStream in = c.getInputStream();
+        FileOutputStream fo = new FileOutputStream(out);
+        try {
+            byte[] buf = new byte[32 * 1024];
+            long got = 0;
+            int lastPct = -1;
+            int n;
+            while ((n = in.read(buf)) > 0) {
+                fo.write(buf, 0, n);
+                got += n;
+                if (total > 0) {
+                    int pct = (int) (got * 100 / total);
+                    if (pct != lastPct && pct % 4 == 0) {
+                        lastPct = pct;
+                        emitProgress(pct);
+                    }
+                }
+            }
+            fo.flush();
+        } finally {
+            try {
+                fo.close();
+            } catch (Exception ignore) {
+            }
+            try {
+                in.close();
+            } catch (Exception ignore) {
+            }
+            c.disconnect();
+        }
+    }
+
     private String httpGet(String url, int max) throws Exception {
         HttpURLConnection c = open(url);
         InputStream in = c.getInputStream();
@@ -243,7 +298,7 @@ class UpdateManager {
         if (t == null) return "未知错误";
         String m = t.getMessage();
         if (m == null || m.length() == 0) m = t.getClass().getSimpleName();
-        if (t instanceof java.net.UnknownHostException) return "连不上 GitHub，检查网络后重试";
+        if (t instanceof java.net.UnknownHostException) return "连不上更新服务器，检查网络后重试";
         if (t instanceof java.net.SocketTimeoutException) return "网络超时，稍后再试";
         return m;
     }

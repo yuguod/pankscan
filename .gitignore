@@ -3,6 +3,8 @@ output/
 .workbuddy/
 *.apk
 releases/*.apk
+# 例外：dist/ 里放最新一版，供 jsDelivr 镜像分发（历史版本在各版 tag 的旧提交里）
+!dist/*.apk
 
 # 签名密钥绝不入库（含口令，泄露等于别人可以冒名发版）
 *.jks

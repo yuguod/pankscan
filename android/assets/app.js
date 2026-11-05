@@ -6,7 +6,7 @@
   var DEFAULT_STATUSES = ['良品', '不良品', '待检'];
   var APP_INFO = {
     name: '盘库助手',
-    version: '1.8',
+    version: '1.9',
     build: '2026-11-05',
     author: '雨过',
     pkg: 'com.pankscan.app',

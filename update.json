@@ -1,8 +1,9 @@
 {
-  "versionCode": 8,
-  "versionName": "1.7",
-  "apk": "https://github.com/yuguod/pankscan/releases/download/v1.7/pankscan_v1.7.apk",
-  "size": "730 KB",
-  "sha256": "1a0c8f8e8e19e9d0559ac73eb904c4954bfe22b3d8a9301585ac6fafe4a0a085",
-  "notes": "新增「按栈板管理」：明细页改为按栈板分组，点 SN 可改料号/名称/状态，删除后 5 秒内可撤销，每板可改名、单独导出、整板删除。\n新增本机识别画像：每台手机各自记住哪种扫法最灵，攒够样本后自动调整解码顺序与阈值档位，越用越顺；设置页可查看与重置。\n新增自动更新：设置页「检查更新」读取 GitHub 上的版本清单，确认后直接下载并调起安装。\n扫码链路微调：取景框缩到 68%，读不出时提示走近或点 2×。\n"
+  "versionCode": 10,
+  "versionName": "1.9",
+  "apk": "https://cdn.jsdelivr.net/gh/yuguod/pankscan@v1.9/dist/pankscan_v1.9.apk",
+  "apk2": "https://github.com/yuguod/pankscan/releases/download/v1.9/pankscan_v1.9.apk",
+  "size": "734 KB",
+  "sha256": "d1f8a177e672353a774c9fe80ff54168177ae698b6dbc8946a238f4150711078",
+  "notes": "返回键不再直接退出程序：正在扫码时，返回键等于「结束扫描」；有弹窗打开时，返回键先关弹窗；只有停在首页时才会问是否退出。\n退出前会说明本机还存着多少条记录、退出不会清空，误触一下不会再直接把程序关掉。\n结束扫描也加了确认：当前栈板有条数时先问一句，一条都没扫到时直接返回，不挡路。\n修复「检查更新」在国内连不上的问题：版本清单与安装包优先走 jsDelivr 镜像，拉不动时自动切回 GitHub 原地址。\n"
 }
