@@ -42,28 +42,47 @@ cd android/test && java -cp ../libs/core.jar DecodeSelfTest.java
 - 数据存在 App 私有目录，卸载即清空，收工前先导出
 - 网页版与 APK 的数据互不相通；网页版可在「设置」导出 CSV，再在 APK 里导入
 
-## 自动更新（v1.7 起）
+## 自动更新（v1.7 起，v1.10 改链路）
 
 App 不经过应用商店，自己搬包：读仓库根目录的 `update.json` → 比对 `versionCode` →
-下载 Release 里的 APK → 按清单里的 `sha256` 校验 → 交给系统安装器。
+下载安装包 → 按清单里的 `sha256` 校验 → 交给系统安装器。
 
-- 清单地址写在 `android/src/com/pankscan/app/AppConfig.java` 的 `OWNER` / `REPO` / `BRANCH`，
-  **只改这一处**，`publish.sh` 用 grep 从同一个文件读，脚本和 App 不会对不上。
+- 仓库地址只写在 `android/src/com/pankscan/app/AppConfig.java` 的 `OWNER` / `REPO` / `BRANCH`，
+  `publish.sh` 用 grep 从同一个文件读，脚本和 App 不会对不上。
 - 安装包地址只认 HTTPS；版本号不大于本机时不提示，写错清单也不会降级。
 - Android 8 起首次安装需允许「安装未知应用」，App 会先跳去设置页，不硬装。
+
+### 为什么清单和包要备两条路
+
+本地实测：`raw.githubusercontent.com` 直接解析失败，`uploads.github.com` 被指到
+`githubusercontent` 的地址（Release 附件传不上去），只有 jsDelivr 和 `api.github.com` 能直连。
+另外 jsDelivr 对 `@分支` 引用有最长 12 小时的缓存，加时间戳参数也绕不过去。
+
+所以现在按这个顺序取：
+
+| 用途 | 第一选择 | 第二选择 | 第三选择 |
+|---|---|---|---|
+| 版本清单 | `api.github.com/repos/{o}/{r}/contents/update.json?ref=main`（实时） | `raw.githubusercontent.com` | jsDelivr `@main`（可能滞后） |
+| 安装包 | `cdn.jsdelivr.net/gh/{o}/{r}@{tag}/dist/…apk` | `gcore.jsdelivr.net` 同路径 | — |
+
+清单里的 `apk` / `apk2` 就是这两条安装包地址，App 拉不动第一个会自动换第二个。
 
 发布一个版本：
 
 ```bash
-gh auth login          # 只需一次；令牌过期后要重做
-bash publish.sh        # 打包 → 写 update.json → 建 Release → 推送
+bash publish.sh        # 打包 → dist/ 放包 → 写 update.json → 推 main 与 tag → 建 Release
 bash publish.sh --dry  # 只打包并生成本地清单，不碰 GitHub
 ```
 
+脚本会顺手 `git tag v<版本>` 并推送——CDN 的安装包地址用的是 tag 引用，
+没有 tag 就打不开。`dist/` 里只留最新一版，历史版本在各版 tag 指向的旧提交里，地址依然有效。
+
 更新说明写在 `更新说明.txt`，发布会原样进 `update.json` 的 `notes`，App 里点「检查更新」能看到。
 
-> GitHub 在国内访问可能偏慢。`检查更新` 失败会明确提示「连不上 GitHub」，
-> 也可以照旧直接发 APK 手动安装，两种方式并存。
+> 发布后想立刻验证，直接开这三个地址：
+> `https://api.github.com/repos/yuguod/pankscan/contents/update.json?ref=main`、
+> `https://cdn.jsdelivr.net/gh/yuguod/pankscan@<版本>/dist/pankscan_v<版本>.apk`、
+> `https://github.com/yuguod/pankscan/releases/tag/v<版本>`。
 
 ## 重新打包
 

@@ -100,55 +100,67 @@ git push origin "HEAD:$BRANCH"
 git push -f origin "refs/tags/v$VER"
 echo "已推送 $BRANCH 与 tag v$VER"
 
-# 3) 建 Release 并上传 APK。gh 令牌常失效，失效时用 git 凭据直接调 API
+# 3) 建 Release 并上传 APK
+#
+# 这里不走 gh：它上传附件时打的是 uploads.github.com，而本地 DNS 把这个名字
+# 污染到了 githubusercontent 的地址上，Go 直接报 no such host。改用 curl，
+# 先用正常解析试一次，失败就查 DoH 拿真实 IP 再 --resolve 直连。
+# 传不上去也不影响 App 更新——清单和安装包都已经在仓库里、走 CDN 下发。
 CURL_NOPROXY="${CURL_NOPROXY:---noproxy=*}"
 
 upload_release() {
-  if gh auth status >/dev/null 2>&1; then
-    if gh release view "v$VER" --repo "$OWNER/$REPO" >/dev/null 2>&1; then
-      gh release upload "v$VER" "$DIST/$ASSET" --repo "$OWNER/$REPO" --clobber
-    else
-      gh release create "v$VER" "$DIST/$ASSET" \
-         --repo "$OWNER/$REPO" \
-         --title "盘库助手 v$VER" \
-         --notes "安装包 $ASSET（${SIZE_KB} KB，SHA-256 ${SHA:0:16}…）"$'\n'"版本清单与更新说明见仓库根目录 update.json。"
-    fi
-    return 0
-  fi
-
-  local token rid
-  token="$(printf 'protocol=https\nhost=github.com\n\n' | git credential fill 2>/dev/null | sed -n 's/^password=//p' | head -1)"
+  local token rid ip
+  token="$(gh auth token 2>/dev/null || true)"
   if [ -z "$token" ]; then
-    echo "跳过 Release：既没有 gh 登录，也没有可用的 git 凭据"
+    token="$(printf 'protocol=https\nhost=github.com\n\n' | git credential fill 2>/dev/null | sed -n 's/^password=//p' | head -1)"
+  fi
+  if [ -z "$token" ]; then
+    echo "跳过 Release：没有可用的 GitHub 令牌"
     return 1
   fi
 
-  # 已存在就复用，不重复建
-  rid="$(curl $CURL_NOPROXY -sS -H "Authorization: Bearer $token" \
+  # 已有就复用，没有才建
+  rid="$(curl $CURL_NOPROXY -sS -m 30 -H "Authorization: Bearer $token" \
         "https://api.github.com/repos/$OWNER/$REPO/releases/tags/v$VER" \
         | grep -o '"id":[0-9]*' | head -1 | cut -d: -f2)"
   if [ -z "$rid" ]; then
-    rid="$(curl $CURL_NOPROXY -sS -X POST \
+    rid="$(curl $CURL_NOPROXY -sS -m 30 -X POST \
         -H "Authorization: Bearer $token" \
         -H "Accept: application/vnd.github+json" \
         "https://api.github.com/repos/$OWNER/$REPO/releases" \
-        -d "{\"tag_name\":\"v$VER\",\"name\":\"盘库助手 v$VER\",\"body\":\"安装包 $ASSET（${SIZE_KB} KB）\"}" \
+        -d "{\"tag_name\":\"v$VER\",\"name\":\"盘库助手 v$VER\",\"body\":\"安装包 $ASSET（${SIZE_KB} KB，SHA-256 ${SHA:0:16}…）\"}" \
         | grep -o '"id":[0-9]*' | head -1 | cut -d: -f2)"
   fi
   [ -z "$rid" ] && { echo "跳过 Release：接口没有返回 release id"; return 1; }
 
-  curl $CURL_NOPROXY -sS -X POST \
-    -H "Authorization: Bearer $token" \
-    -H "Content-Type: application/vnd.android.package-archive" \
-    --data-binary "@$DIST/$ASSET" \
-    "https://uploads.github.com/repos/$OWNER/$REPO/releases/$rid/assets?name=$ASSET" >/dev/null
-  echo "Release v$VER 已上传 $ASSET"
+  local api="https://uploads.github.com/repos/$OWNER/$REPO/releases/$rid/assets?name=$ASSET"
+  if curl $CURL_NOPROXY -sS -m 300 -X POST \
+        -H "Authorization: Bearer $token" \
+        -H "Content-Type: application/vnd.android.package-archive" \
+        --data-binary "@$DIST/$ASSET" "$api" | grep -q '"state"'; then
+    echo "Release v$VER 已上传 $ASSET"
+    return 0
+  fi
+
+  ip="$(curl $CURL_NOPROXY -sS -m 10 -H "accept: application/dns-json" \
+        "https://dns.alidns.com/resolve?name=alambic-origin.githubusercontent.com&type=A" \
+        | grep -o '"data":"[0-9.]*"' | head -1 | cut -d'"' -f4)"
+  if [ -n "$ip" ] && curl --noproxy '*' --resolve "uploads.github.com:443:$ip" -sS -m 300 -X POST \
+        -H "Authorization: Bearer $token" \
+        -H "Content-Type: application/vnd.android.package-archive" \
+        --data-binary "@$DIST/$ASSET" "$api" | grep -q '"state"'; then
+    echo "Release v$VER 已上传 $ASSET（经 $ip 直连）"
+    return 0
+  fi
+  echo "Release 附件没传上去，但 App 更新不受影响（走 CDN）"
+  return 1
 }
 
-upload_release || echo "（Release 未完成，不影响 App 更新：清单和包包都已进仓库，走 CDN）"
+upload_release || true
 
 echo
 echo "完成。App 内的「检查更新」按顺序读："
-echo "  $CDN_MANIFEST"
-echo "  清单里 apk 先走 $CDN_APK"
-echo "  不行再切 $GH_APK"
+echo "  https://api.github.com/repos/$OWNER/$REPO/contents/update.json?ref=$BRANCH   （实时，主源）"
+echo "  $CDN_MANIFEST   （jsDelivr，有缓存，兜底）"
+echo "安装包先走 $CDN_APK"
+echo "拉不动再切 $GCORE_APK"
